@@ -1,0 +1,5 @@
+deepface~=0.0.93
+Flask~=3.1.0
+utils~=1.0.2
+opencv-python~=4.10.0.84
+Werkzeug~=3.1.3
