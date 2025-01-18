@@ -1,12 +1,10 @@
-import shutil
-
-import cv2
-from deepface import DeepFace
-from flask import Flask, request, jsonify
 import os
+import shutil
 import zipfile
 import tempfile
+from flask import Flask, request, jsonify
 from werkzeug.utils import secure_filename
+from utils.face_utils import find_matching_images
 
 app = Flask(__name__)
 
@@ -68,34 +66,25 @@ def create_personalized_album(album_path, guest_photo_path, output_path):
             with zipfile.ZipFile(album_path, 'r') as zip_ref:
                 zip_ref.extractall(album_extraction_path)
 
-            # Load the guest photo
-            guest_image = cv2.imread(guest_photo_path)
-            if guest_image is None:
-                raise ValueError(f"Guest photo could not be loaded from {guest_photo_path}")
+            # Gather paths for all event photos, excluding __MACOSX and hidden files
+            event_photos_paths = []
+            for root, _, files in os.walk(album_extraction_path):
+                if "__MACOSX" in root:
+                    continue
+                for file in files:
+                    if not file.startswith("._"):  # Exclude hidden files
+                        event_photos_paths.append(os.path.join(root, file))
 
-            # Process each photo in the album directory
+            # Find matching photos
+            matching_photos = find_matching_images(guest_photo_path, event_photos_paths)
+
+            # Create a directory for personalized images
             personalized_images_dir = os.path.join(temp_dir, "personalized")
             os.makedirs(personalized_images_dir, exist_ok=True)
 
-            for root, _, files in os.walk(album_extraction_path):
-                for file in files:
-                    file_path = os.path.join(root, file)
-
-                    # Read the event photo
-                    event_image = cv2.imread(file_path)
-                    if event_image is None:
-                        print(f"Warning: Unable to read image {file_path}, skipping.")
-                        continue
-
-                    # Use DeepFace to verify similarity
-                    try:
-                        result = DeepFace.verify(guest_image, event_image, enforce_detection=False)
-                        if result["verified"]:
-                            print(f"Photo {file} matches guest.")
-                            # Copy matching photo to the personalized directory
-                            shutil.copy(file_path, personalized_images_dir)
-                    except Exception as e:
-                        print(f"Error processing image {file_path}: {e}")
+            # Copy matching photos to personalized directory
+            for photo_path in matching_photos:
+                shutil.copy(photo_path, personalized_images_dir)
 
             # Zip the personalized album
             with zipfile.ZipFile(output_path, 'w') as zipf:
