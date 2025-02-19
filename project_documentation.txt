@@ -1,0 +1,58 @@
+face_recognition/
+├── app/
+│   ├── core/
+│   │   ├── __init__.py
+│   │   ├── face_detector.py      # YOLO face detection
+│   │   ├── face_matcher.py       # Face similarity
+│   │   └── models/               # ML model files
+│   ├── api/
+│   │   ├── __init__.py 
+│   │   ├── routes.py            # API endpoints
+│   │   ├── auth.py              # Authentication
+│   │   └── validators.py        # Request validation
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   ├── image_processing.py  # Image utilities
+│   │   ├── aws.py              # AWS helpers
+│   │   └── logger.py           # Logging setup
+│   └── config/
+│       ├── __init__.py
+│       ├── settings.py          # App settings
+│       └── .env                 # Environment variables
+├── tests/
+│   ├── __init__.py
+│   ├── test_detector.py         # Face detection tests
+│   ├── test_matcher.py          # Matching tests
+│   └── test_api.py             # API tests
+├── logs/
+│   ├── app.log
+│   └── error.log
+├── requirements.txt
+├── Dockerfile                   # Container config
+├── .gitignore
+└── README.md
+
+
+# Face Recognition System Documentation
+
+## Overview
+A system for identifying and matching faces across an image database, primarily designed for event photography management. The system allows companies to efficiently distribute event photos to employees by matching them against reference face images.
+
+## System Components
+
+### Face Extraction 
+- Uses YOLOv8 for face detection
+- Processes input images and extracts face crops
+- Key features:
+  - Confidence threshold: 0.8
+  - Automatic padding: 20% of face size
+  - Output size: 160x160 pixels
+
+### Face Matching 
+- Using FaceNet-512 model for face recognition
+- Matches extracted faces against reference images
+- Features:
+  - Cosine similarity matching
+  - Multi-match support
+  - Configurable similarity threshold
+

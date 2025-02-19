@@ -1,0 +1,7 @@
+weights/
+*.pt
+*.pth
+*.ptl
+*.pthl
+*.ptm
+*.pthm
