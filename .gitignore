@@ -14,10 +14,17 @@ __pycache__/
 .Python
 env/
 
+#images
+event_faces_crop/
+reference_faces_crop/
+event_mapping.json
+reference_mapping.json
+
 # Virtual Environment
 venv/
 ENV/
 .env
+.venv
 
 # IDE specific files
 .idea/
