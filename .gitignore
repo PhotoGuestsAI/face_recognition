@@ -39,3 +39,6 @@ ENV/
 
 .cursorrules
 .cursorignore
+project_goal.txt
+project_documentation.txt
+help.txt
