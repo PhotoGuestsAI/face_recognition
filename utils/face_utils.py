@@ -39,4 +39,6 @@ def find_matching_images(guest_photo_path, event_photos_paths, model_name='VGG-F
     for photo_path in event_photos_paths:
         if match_faces(guest_photo_path, photo_path, model_name, distance_threshold):
             matching_images.append(photo_path)
+        else:
+            matching_images.append(photo_path)
     return matching_images
