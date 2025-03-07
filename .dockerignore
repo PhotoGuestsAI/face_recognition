@@ -1,0 +1,57 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Temp files
+*.log
+*.tmp
+temp/
+tmp/
+
+# Local development
+.env
+.env.local 
+
+event_faces_crop/
+tests/
+logs/
+.cursorignore
+.cursorrules
+app.py
+event_mapping.json
+project_documentation.txt
+project_goal.txt
+README.md
+reference_mapping.json

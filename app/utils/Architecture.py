@@ -1,5 +1,5 @@
 import os
-from FacialRecognition import FacialRecognition
+from app.utils.FacialRecognition import FacialRecognition
 import tensorflow as tf
 
 
@@ -1647,6 +1647,6 @@ def InceptionResNetV1(dimension: int = 128) -> Model:
 
 def load_facenet512d_model() -> Model:
     model = InceptionResNetV1(dimension=512)
-    model.load_weights("weights/facenet512_weights.h5")
+    model.load_weights("app/weights/facenet512_weights.h5")
     # -------------------------
     return model
