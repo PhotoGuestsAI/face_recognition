@@ -42,5 +42,5 @@ ENV PORT=5001
 # Expose the port (this is for documentation, actual port is set at runtime)
 EXPOSE ${PORT}
 
-# Command to run the application
-CMD ["python", "new_app.py"]
+# Command to run the application with Gunicorn and Gevent
+CMD ["gunicorn", "-w", "4", "-k", "gevent", "-b", "0.0.0.0:5001", "new_app:app"]

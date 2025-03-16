@@ -19,4 +19,6 @@ flask==2.3.3
 tqdm>=4.65.0
 pathlib>=1.0.1
 
-
+omegaconf
+gunicorn
+gevent
