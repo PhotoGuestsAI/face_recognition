@@ -8,6 +8,7 @@ import os
 from app.utils.Architecture import load_facenet512d_model
 from scipy.spatial.distance import cosine, cdist
 import numpy as np
+import time  # Add this import at the top of the file
 
 # Add this with the other constants at the top of the file
 BUCKET_NAME = 'photoguests-events'
@@ -252,7 +253,8 @@ def calculate_matching(guest_embeddings, event_embeddings):
 def find_matching_mapping(s3_client, guest_photos_paths, event_photos_paths, temp_dir, bucket_name='photoguests-events'):
     check_weights_exist()
 
-
+    # Measure time for extracting faces
+    start_extract_time = time.time()
     guest_faces, event_faces, guest_mapping, event_mapping = extract_faces(
         s3_client, 
         guest_photos_paths, 
@@ -260,6 +262,7 @@ def find_matching_mapping(s3_client, guest_photos_paths, event_photos_paths, tem
         temp_dir,
         bucket_name
     )
+    extract_time = time.time() - start_extract_time
 
     # Print detailed statistics
     print("\n=== Face Detection Statistics ===")
@@ -289,24 +292,21 @@ def find_matching_mapping(s3_client, guest_photos_paths, event_photos_paths, tem
 
     # Use local model path instead of downloading from S3
     facenet_model = load_facenet512d_model()
-    
+
+    # Measure time for calculating embeddings
+    start_embedding_time = time.time()
     guest_embeddings, event_embeddings = calculating_embeddings(s3_client, guest_faces, event_faces, guest_mapping, event_mapping, facenet_model)
+    embedding_time = time.time() - start_embedding_time
 
-    # Print statistics and dimensions of embeddings
-    print("\n=== Embedding Statistics ===")
-    print(f"Total guest embeddings: {len(guest_embeddings)}")
-    print(f"Total event embeddings: {len(event_embeddings)}")
 
-    # Print dimensions of the embeddings
-    if guest_embeddings:
-        print(f"Dimensions of guest embeddings: {len(guest_embeddings[0]['embedding'])} (for each guest)")
-    else:
-        print("No guest embeddings found.")
+    # Measure time for calculating matches
+    start_matching_time = time.time()
+    matches = calculate_matching(guest_embeddings, event_embeddings)
+    matching_time = time.time() - start_matching_time
 
-    if event_embeddings:
-        print(f"Dimensions of event embeddings: {len(event_embeddings[0]['embedding'])} (for each event)")
-    else:
-        print("No event embeddings found.")
-
-    print("=========================")
-    return calculate_matching(guest_embeddings, event_embeddings)
+    # Return the matching results along with timing information
+    return matches, {
+        "face_extraction_time": extract_time,
+        "embedding_time": embedding_time,
+        "finding_matches_time": matching_time
+    }

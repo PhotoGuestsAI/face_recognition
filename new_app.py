@@ -1,12 +1,14 @@
 import os
-import shutil
-import zipfile
 import tempfile
 import boto3
 import json
 from flask import Flask, request, jsonify
 from app.utils.new_face_utils import find_matching_mapping
 from pathlib import Path
+import io
+from concurrent.futures import ThreadPoolExecutor
+import time
+
 
 app = Flask(__name__)
 
@@ -101,30 +103,62 @@ def process_album():
             event_photos_dir = os.path.join(temp_dir, "event_photos")
             os.makedirs(event_photos_dir, exist_ok=True)
 
-            # List and download all photos from the album directory
+            # Measure time for downloading event photos
+            start_event_download_time = time.time()
             event_photos_paths = []
             response = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=event_album_s3_path)
-            for obj in response.get('Contents', []):
-                if obj['Key'].lower().endswith(('.jpg', '.jpeg', '.png')):
-                    local_path = os.path.join(event_photos_dir, os.path.basename(obj['Key']))
-                    s3_client.download_file(BUCKET_NAME, obj['Key'], local_path)
+
+            def download_file(obj_key):
+                try:
+                    local_path = os.path.join(event_photos_dir, os.path.basename(obj_key))
+                    with open(local_path, 'wb') as f:
+                        s3_client.download_fileobj(BUCKET_NAME, obj_key, f)
+                    return local_path
+                except Exception as e:
+                    print(f"Error downloading {obj_key}: {e}")
+                    return None  
+
+            with ThreadPoolExecutor() as executor:
+                future_to_key = {executor.submit(download_file, obj['Key']): obj['Key'] for obj in response.get('Contents', []) if obj['Key'].lower().endswith(('.jpg', '.jpeg', '.png'))}
+                for future in future_to_key:
+                    local_path = future.result()
                     event_photos_paths.append(local_path)
                     # Store relative path for later use
                     rel_path = os.path.relpath(local_path, event_photos_dir)
                     print(f"Found event photo: {rel_path}")
+            event_download_time = time.time() - start_event_download_time
 
-            # List reference images in the specified S3 folder
+            # Measure time for downloading guest photos
+            start_guest_download_time = time.time()
             reference_images = s3_client.list_objects_v2(Bucket=BUCKET_NAME, Prefix=event_path)
             guests_photos_paths = []
-            for obj in reference_images.get('Contents', []):
-                if obj['Key'].endswith(('.jpg', '.jpeg', '.png')):
-                    guests_photos_paths.append(f"{BUCKET_NAME}/{obj['Key']}")
+            guest_photos_dir = os.path.join(temp_dir, "guest_photos")
+            os.makedirs(guest_photos_dir, exist_ok=True)
 
-            results = find_matching_mapping(s3_client, 
-                                        guest_photos_paths=guests_photos_paths,
-                                        event_photos_paths=event_photos_paths,
-                                        temp_dir=temp_dir,
-                                        bucket_name=BUCKET_NAME)
+            def download_guest_photo(obj_key):
+                try:
+                    local_path = os.path.join(guest_photos_dir, os.path.basename(obj_key))
+                    with open(local_path, 'wb') as f:
+                        s3_client.download_fileobj(BUCKET_NAME, obj_key, f)
+                    return local_path
+                except Exception as e:
+                    print(f"Error downloading {obj_key}: {e}")
+                    return None  
+
+            with ThreadPoolExecutor() as executor:
+                future_to_key = {executor.submit(download_guest_photo, obj['Key']): obj['Key'] for obj in reference_images.get('Contents', []) if obj['Key'].endswith(('.jpg', '.jpeg', '.png'))}
+                for future in future_to_key:
+                    local_path = future.result()
+                    if local_path:
+                        guests_photos_paths.append(local_path)
+            guest_download_time = time.time() - start_guest_download_time
+
+            # Now call the find_matching_mapping function with local paths
+            results, timing_info = find_matching_mapping(s3_client, 
+                                            guest_photos_paths=guests_photos_paths,
+                                            event_photos_paths=event_photos_paths,
+                                            temp_dir=temp_dir,
+                                            bucket_name=BUCKET_NAME)
             
             # Extract phone numbers and restructure results
             processed_results = {}
@@ -148,59 +182,16 @@ def process_album():
                 "message": "Done", 
                 "results": processed_results,
                 "phone_mapping": phone_mapping,
-                "saved_mapping_paths": saved_paths
+                "saved_mapping_paths": saved_paths,
+                "timing_info": {
+                    "event_download_time": event_download_time,
+                    "guest_download_time": guest_download_time,
+                    **timing_info  # Include timing information from find_matching_mapping
+                }
             }), 200
 
-        
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
-
-def create_personalized_albums(results, temp_dir, event_path):
-    """Creates personalized albums for all guests in S3."""
-    base_s3_path = f"{event_path}personalized_albums"
-    album_paths = [create_personalized_album(guest_photo, guest_data, temp_dir, base_s3_path) 
-                  for guest_photo, guest_data in results.items()]
-    # Filter out None results
-    return [path for path in album_paths if path is not None]
-
-
-def create_personalized_album(guest_photo_path, guest_data, temp_dir, base_s3_path):
-    """Creates a personalized album ZIP file and uploads to S3."""
-    phone_number = guest_data['phone_number']
-    temp_zip_path = os.path.join(temp_dir, f"temp_{phone_number}.zip")
-    
-    if os.path.exists(temp_zip_path):
-        os.remove(temp_zip_path)
-    
-    if not guest_data['matches']:
-        print(f"Warning: No matches found for guest {phone_number}")
-        return None
-        
-    with zipfile.ZipFile(temp_zip_path, 'w') as zipf:
-        files_added = 0
-        for match in guest_data['matches']:
-            # Get the basename and search for it recursively
-            photo_name = os.path.basename(match['event_photo'])
-            found = False
-            for root, _, files in os.walk(os.path.join(temp_dir, 'event_photos')):
-                if photo_name in files:
-                    event_photo = os.path.join(root, photo_name)
-                    zipf.write(event_photo, photo_name)
-                    files_added += 1
-                    found = True
-                    break
-            if not found:
-                print(f"Warning: Event photo not found anywhere: {photo_name}")
-    
-    if files_added == 0:
-        print(f"Warning: No files were added to zip for guest {phone_number}")
-        return None
-        
-    s3_key = f"{base_s3_path}/{phone_number}/personalized_album.zip"
-    s3_client.upload_file(temp_zip_path, BUCKET_NAME, s3_key)
-    os.remove(temp_zip_path)
-    return s3_key
 
 
 if __name__ == "__main__":
