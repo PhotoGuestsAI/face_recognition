@@ -31,8 +31,8 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy only necessary files
-COPY app/weights/*.pt app/weights/
-COPY app/weights/*.h5 app/weights/
+#COPY app/weights/*.pt app/weights/
+#COPY app/weights/*.h5 app/weights/
 COPY app/utils/*.py app/utils/
 COPY new_app.py .
 

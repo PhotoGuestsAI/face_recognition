@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  face-recognition-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+    volumes:
+      - /home/ec2-user/weights:/app/weights  # Mount local weights into container
+    restart: unless-stopped
