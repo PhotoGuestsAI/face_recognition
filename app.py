@@ -139,4 +139,4 @@ def create_personalized_album(album_path, guest_photo_path, temp_dir):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5001, debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=False)
